@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ShareScreen — Transmitir</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0b0b16;color:#dcddde;font-family:'Segoe UI','gg sans',sans-serif;min-height:100vh}
+.page{max-width:1200px;margin:0 auto;padding:20px}
+
+/* ── Header ── */
+.header{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+.header-icon{width:40px;height:40px;background:linear-gradient(135deg,#5865f2,#7289da);border-radius:10px;display:flex;align-items:center;justify-content:center}
+.header h1{font-size:22px;font-weight:700;color:#fff}
+.header .sub{color:rgba(255,255,255,.35);font-size:12px;margin-top:2px}
+
+/* ── Status pill ── */
+.status-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:600;margin-bottom:16px}
+.status-pill.ready{background:rgba(87,242,135,.1);color:#57f287}
+.status-pill.error{background:rgba(237,66,69,.1);color:#ed4245}
+.status-pill.live{background:rgba(237,66,69,.15);color:#ed4245;animation:pulse-bg 1.5s ease infinite}
+.status-pill .dot{width:8px;height:8px;border-radius:50%;background:currentColor}
+@keyframes pulse-bg{50%{background:rgba(237,66,69,.25)}}
+
+/* ── Layout: 2 colunas ── */
+.layout{display:grid;grid-template-columns:320px 1fr;gap:20px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}}
+
+/* ── Sidebar (settings) ── */
+.sidebar{display:flex;flex-direction:column;gap:12px}
+
+.card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:16px}
+.card-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.4);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.card-title svg{width:14px;height:14px;opacity:.5}
+
+/* Source selector */
+.source-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.source-btn{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 8px;border:2px solid rgba(255,255,255,.08);border-radius:10px;background:transparent;color:#dcddde;cursor:pointer;transition:all .15s;font-size:12px;font-weight:600}
+.source-btn:hover{border-color:rgba(255,255,255,.2);background:rgba(255,255,255,.03)}
+.source-btn.active{border-color:#5865f2;background:rgba(88,101,242,.1);color:#fff}
+.source-btn svg{width:28px;height:28px;opacity:.7}
+.source-btn.active svg{opacity:1}
+.source-btn .source-sub{font-size:10px;font-weight:400;color:rgba(255,255,255,.3)}
+.source-btn.active .source-sub{color:rgba(255,255,255,.5)}
+
+/* Quality selector */
+.quality-list{display:flex;flex-direction:column;gap:6px}
+.q-opt{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:2px solid rgba(255,255,255,.06);border-radius:8px;cursor:pointer;transition:all .15s;background:transparent}
+.q-opt:hover{border-color:rgba(255,255,255,.15)}
+.q-opt.active{border-color:#5865f2;background:rgba(88,101,242,.08)}
+.q-label{font-weight:600;font-size:13px;color:#fff}
+.q-detail{font-size:11px;color:rgba(255,255,255,.35)}
+.q-opt.active .q-detail{color:rgba(255,255,255,.5)}
+
+/* FPS selector */
+.fps-row{display:flex;gap:6px}
+.fps-btn{flex:1;padding:8px;border:2px solid rgba(255,255,255,.06);border-radius:8px;background:transparent;color:#dcddde;font-size:13px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s}
+.fps-btn:hover{border-color:rgba(255,255,255,.15)}
+.fps-btn.active{border-color:#5865f2;background:rgba(88,101,242,.08);color:#fff}
+
+/* Audio toggle */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:4px 0}
+.toggle-label{font-size:13px;color:#dcddde}
+.toggle-sub{font-size:11px;color:rgba(255,255,255,.3)}
+.toggle{position:relative;width:42px;height:24px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-track{position:absolute;inset:0;background:rgba(255,255,255,.12);border-radius:12px;cursor:pointer;transition:background .2s}
+.toggle-track::after{content:'';position:absolute;left:3px;top:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:transform .2s}
+.toggle input:checked+.toggle-track{background:#5865f2}
+.toggle input:checked+.toggle-track::after{transform:translateX(18px)}
+
+/* Camera select */
+.cam-select{width:100%;padding:8px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#dcddde;font-size:13px;cursor:pointer;appearance:none;-webkit-appearance:none}
+.cam-select:focus{outline:1px solid #5865f2;border-color:#5865f2}
+
+/* ── Main area (preview + live) ── */
+.main-area{display:flex;flex-direction:column;gap:12px}
+
+.preview-container{position:relative;width:100%;aspect-ratio:16/9;background:#0f0f1e;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center}
+.preview-container video{width:100%;height:100%;object-fit:contain}
+.preview-placeholder{display:flex;flex-direction:column;align-items:center;gap:12px;color:rgba(255,255,255,.2);text-align:center;padding:20px}
+.preview-placeholder svg{width:48px;height:48px;opacity:.3}
+.preview-placeholder .hint{font-size:13px}
+.preview-placeholder .hint-sub{font-size:11px;color:rgba(255,255,255,.12)}
+
+.live-badge{position:absolute;top:10px;left:10px;background:#ed4245;color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:4px;display:none;animation:pulse-bg 1.5s ease infinite}
+
+/* ── Action buttons ── */
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{padding:10px 20px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;flex:1;min-width:140px}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-primary{background:#5865f2;color:#fff}
+.btn-primary:hover:not(:disabled){background:#4752c4}
+.btn-green{background:#248046;color:#fff}
+.btn-green:hover:not(:disabled){background:#1a6334}
+.btn-danger{background:#ed4245;color:#fff}
+.btn-danger:hover:not(:disabled){background:#c73538}
+.btn-outline{background:transparent;border:1px solid rgba(255,255,255,.15);color:#dcddde}
+.btn-outline:hover:not(:disabled){background:rgba(255,255,255,.06)}
+.btn-sm{flex:0 0 auto;min-width:auto;padding:10px 14px}
+
+/* ── Stats bar ── */
+.stats-bar{display:flex;gap:16px;padding:10px 14px;background:rgba(255,255,255,.03);border-radius:8px;font-size:12px;color:rgba(255,255,255,.4);flex-wrap:wrap;display:none}
+.stats-bar.visible{display:flex}
+.stat-item{display:flex;align-items:center;gap:4px}
+.stat-val{color:#fff;font-weight:600}
+
+/* ── Status message ── */
+.panel-msg{font-size:12px;min-height:18px;padding:2px 0}
+.panel-msg.error{color:#ed4245}
+.panel-msg.warn{color:#faa61a}
+.panel-msg.ok{color:#57f287}
+
+/* ── Tip ── */
+.tip{font-size:11px;color:rgba(255,255,255,.2);line-height:1.5;padding:10px 14px;border:1px solid rgba(255,255,255,.04);border-radius:8px;margin-top:auto}
+.tip b{color:rgba(255,255,255,.4)}
+
+/* ── Audio separate button ── */
+.btn-audio-sep{width:100%;padding:8px 14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:8px;color:#dcddde;font-size:12px;cursor:pointer;display:none;transition:all .15s}
+.btn-audio-sep:hover{background:rgba(255,255,255,.1)}
+.btn-audio-sep.visible{display:block}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div class="header-icon">
+      <svg width="22" height="22" fill="none" viewBox="0 0 24 24"><path d="M3 4a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V4z" stroke="#fff" stroke-width="2"/><path d="M8 20h8M12 16v4" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+    </div>
+    <div>
+      <h1>Transmitir</h1>
+      <div class="sub">Mantenha esta aba aberta. Volte ao Discord — a transmissão continua.</div>
+    </div>
+  </div>
+
+  <div id="pageStatus" class="status-pill ready"><span class="dot"></span> Pronto</div>
+
+  <div class="layout">
+    <!-- ═══ Sidebar: Configurações ═══ -->
+    <div class="sidebar">
+
+      <!-- Fonte -->
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M3 4a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V4z" stroke="currentColor" stroke-width="2"/></svg>
+          Fonte
+        </div>
+        <div class="source-grid">
+          <button class="source-btn active" data-fonte="tela" data-surface="monitor">
+            <svg viewBox="0 0 24 24" fill="none"><rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M8 21h8M12 17v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Tela inteira
+            <span class="source-sub">Monitor</span>
+          </button>
+          <button class="source-btn" data-fonte="tela" data-surface="window">
+            <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M3 8h18" stroke="currentColor" stroke-width="1.5"/><circle cx="6" cy="6" r=".8" fill="currentColor"/><circle cx="8.5" cy="6" r=".8" fill="currentColor"/><circle cx="11" cy="6" r=".8" fill="currentColor"/></svg>
+            Janela
+            <span class="source-sub">Aplicativo</span>
+          </button>
+          <button class="source-btn" data-fonte="tela" data-surface="browser">
+            <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M3 8h18" stroke="currentColor" stroke-width="1.5"/><path d="M7 6h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Aba
+            <span class="source-sub">Navegador</span>
+          </button>
+          <button class="source-btn" data-fonte="camera">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M15 10l4.55-2.6A1 1 0 0121 8.27v7.46a1 1 0 01-1.45.87L15 14" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="6" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>
+            Câmera
+            <span class="source-sub">Webcam</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Câmera select (hidden by default) -->
+      <div class="card" id="camera-card" style="display:none">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M15 10l4.55-2.6A1 1 0 0121 8.27v7.46a1 1 0 01-1.45.87L15 14" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="6" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>
+          Dispositivo
+        </div>
+        <select class="cam-select" id="cam-select"><option>Carregando...</option></select>
+      </div>
+
+      <!-- Qualidade -->
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14l-5-4.87 6.91-1.01L12 2z" stroke="currentColor" stroke-width="1.5"/></svg>
+          Qualidade
+        </div>
+        <div class="quality-list">
+          <div class="q-opt" data-q="1000000"><span class="q-label">Econômico</span><span class="q-detail">1 Mb/s</span></div>
+          <div class="q-opt" data-q="1500000"><span class="q-label">Leve</span><span class="q-detail">1.5 Mb/s</span></div>
+          <div class="q-opt active" data-q="2500000"><span class="q-label">Equilibrado</span><span class="q-detail">2.5 Mb/s</span></div>
+          <div class="q-opt" data-q="4000000"><span class="q-label">Nítido</span><span class="q-detail">4 Mb/s</span></div>
+          <div class="q-opt" data-q="6000000"><span class="q-label">Máximo</span><span class="q-detail">6 Mb/s</span></div>
+        </div>
+      </div>
+
+      <!-- FPS -->
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          FPS
+        </div>
+        <div class="fps-row">
+          <button class="fps-btn" data-fps="15">15</button>
+          <button class="fps-btn active" data-fps="30">30</button>
+          <button class="fps-btn" data-fps="60">60</button>
+        </div>
+      </div>
+
+      <!-- Áudio -->
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M11 5L6 9H2v6h4l5 4V5z" stroke="currentColor" stroke-width="1.5"/><path d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          Áudio
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Capturar som</div>
+            <div class="toggle-sub" id="audio-hint">Som da fonte selecionada</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="audio-toggle" checked>
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="tip">
+        <b>Dica:</b> Para trocar de abas sem congelar, escolha <b>Janela</b>.
+        Escolha <b>Tela inteira</b> para transmitir o monitor.
+        Todas as configurações podem ser alteradas <b>com a transmissão no ar</b>.
+      </div>
+    </div>
+
+    <!-- ═══ Main area ═══ -->
+    <div class="main-area">
+      <div class="preview-container" id="preview-box">
+        <video id="preview-video" autoplay playsinline muted hidden></video>
+        <div id="preview-placeholder" class="preview-placeholder">
+          <svg viewBox="0 0 24 24" fill="none"><rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M8 21h8M12 17v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M10 10l4 2-4 2V10z" fill="currentColor" opacity=".5"/></svg>
+          <div class="hint">Clique em <b>Escolher</b> para ver a prévia</div>
+          <div class="hint-sub">Depois clique em <b>Transmitir</b> para ir ao ar</div>
+        </div>
+        <div class="live-badge" id="live-badge">NO AR</div>
+      </div>
+
+      <div id="panel-msg" class="panel-msg"></div>
+
+      <div class="stats-bar" id="stats-bar">
+        <div class="stat-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg> <span class="stat-val" id="s-viewers">0</span></div>
+        <div class="stat-item">FPS: <span class="stat-val" id="s-fps">0</span></div>
+        <div class="stat-item">Bitrate: <span class="stat-val" id="s-bitrate">0</span> Mb/s</div>
+        <div class="stat-item">Resolução: <span class="stat-val" id="s-res">—</span></div>
+        <div class="stat-item"><span class="stat-val" id="s-elapsed">00:00</span></div>
+      </div>
+
+      <!-- Buttons: setup state -->
+      <div class="actions" id="setup-actions">
+        <button class="btn btn-outline" id="btn-choose">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Escolher
+        </button>
+        <button class="btn btn-primary" id="btn-start">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><polygon points="5,3 19,12 5,21" fill="currentColor"/></svg>
+          Transmitir
+        </button>
+      </div>
+
+      <!-- Buttons: live state -->
+      <div class="actions" id="live-actions" style="display:none">
+        <button class="btn btn-outline btn-sm" id="btn-switch" title="Trocar fonte sem derrubar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M1 4v6h6M23 20v-6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 013.51 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Trocar
+        </button>
+        <button class="btn btn-danger" id="btn-stop">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>
+          Parar
+        </button>
+      </div>
+
+      <button class="btn-audio-sep" id="btn-audio-sep">Escolher áudio separado (aba ou janela)</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { createBroadcaster, supportError, fonteIndisponivel, opcoesTela } from '/shared/broadcaster.js?v=4';
+
+const $ = id => document.getElementById(id);
+const query = new URLSearchParams(location.search);
+const roomId = query.get('room');
+const username = (query.get('user') || 'Streamer').slice(0, 64);
+
+const cfg = {
+  fonte: 'tela',
+  surface: 'monitor',
+  bitrate: 2_500_000,
+  fps: 30,
+  audio: true,
+  cameraId: null,
+};
+
+let broadcaster = null;
+let previa = null;
+let wakeLock = null;
+let thumbTimer = null;
+let thumbCanvas = null;
+let currentRes = '';
+
+// ── Status ──
+function setPageStatus(msg, cls) {
+  $('pageStatus').innerHTML = `<span class="dot"></span> ${esc(msg)}`;
+  $('pageStatus').className = 'status-pill ' + cls;
+}
+function setMsg(msg, kind = '') {
+  $('panel-msg').textContent = msg;
+  $('panel-msg').className = 'panel-msg ' + kind;
+}
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// ── Init checks ──
+const missing = supportError();
+if (!roomId) {
+  setPageStatus('Sala não especificada. Volte ao Discord.', 'error');
+  $('btn-start').disabled = true;
+  $('btn-choose').disabled = true;
+} else if (missing) {
+  setPageStatus(missing, 'error');
+  $('btn-start').disabled = true;
+  $('btn-choose').disabled = true;
+}
+
+// ── Source selection ──
+document.querySelectorAll('.source-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.source-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    cfg.fonte = btn.dataset.fonte;
+    cfg.surface = btn.dataset.surface || null;
+
+    const isCamera = cfg.fonte === 'camera';
+    $('camera-card').style.display = isCamera ? 'block' : 'none';
+    $('audio-toggle').checked = !isCamera;
+    cfg.audio = !isCamera;
+    updateAudioHint();
+
+    if (isCamera) listarCameras();
+
+    pararPrevia();
+  });
+});
+
+// ── Camera enumeration ──
+async function listarCameras() {
+  try {
+    const tmp = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    tmp.getTracks().forEach(t => t.stop());
+  } catch { return; }
+  const cams = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+  const sel = $('cam-select');
+  sel.innerHTML = '';
+  cams.forEach((d, i) => {
+    const o = document.createElement('option');
+    o.value = d.deviceId;
+    o.textContent = d.label || `Câmera ${i + 1}`;
+    sel.append(o);
+  });
+  if (cams.length) cfg.cameraId = cams[0].deviceId;
+}
+
+$('cam-select').addEventListener('change', e => {
+  cfg.cameraId = e.target.value;
+  if (previa) verCamera();
+});
+
+// ── Quality ──
+document.querySelectorAll('.q-opt').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.q-opt').forEach(e => e.classList.remove('active'));
+    el.classList.add('active');
+    cfg.bitrate = Number(el.dataset.q);
+    broadcaster?.setQuality({ bitrate: cfg.bitrate, fps: cfg.fps });
+  });
+});
+
+// ── FPS ──
+document.querySelectorAll('.fps-btn').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.fps-btn').forEach(e => e.classList.remove('active'));
+    el.classList.add('active');
+    cfg.fps = Number(el.dataset.fps);
+    broadcaster?.setQuality({ bitrate: cfg.bitrate, fps: cfg.fps });
+  });
+});
+
+// ── Audio toggle ──
+$('audio-toggle').addEventListener('change', e => {
+  cfg.audio = e.target.checked;
+  updateAudioHint();
+});
+function updateAudioHint() {
+  const h = $('audio-hint');
+  if (cfg.fonte === 'camera') h.textContent = 'Câmera não transmite áudio';
+  else if (!cfg.audio) h.textContent = 'Transmissão sem som';
+  else if (cfg.surface === 'monitor') h.textContent = 'Inclui todos os sons do PC';
+  else if (cfg.surface === 'browser') h.textContent = 'Som da aba selecionada';
+  else h.textContent = 'Som da fonte selecionada';
+}
+
+// ── Preview ──
+function pararPrevia() {
+  previa?.getTracks().forEach(t => t.stop());
+  previa = null;
+  $('preview-video').srcObject = null;
+  $('preview-video').hidden = true;
+  $('preview-placeholder').hidden = false;
+  setMsg('');
+}
+
+function mostrarPrevia(stream) {
+  previa = stream;
+  $('preview-video').srcObject = stream;
+  $('preview-video').play().catch(() => {});
+  $('preview-video').hidden = false;
+  $('preview-placeholder').hidden = true;
+  stream.getVideoTracks()[0]?.addEventListener('ended', () => {
+    if (previa === stream) { pararPrevia(); setMsg('A fonte foi encerrada.'); }
+  });
+  setMsg('Prévia — clique Transmitir para ir ao ar.', 'ok');
+}
+
+async function verTela() {
+  try {
+    const opts = opcoesTela({ fps: cfg.fps, comSom: cfg.audio });
+    if (cfg.surface === 'monitor') opts.video.displaySurface = 'monitor';
+    else if (cfg.surface === 'window') opts.video.displaySurface = 'window';
+    else if (cfg.surface === 'browser') opts.video.displaySurface = 'browser';
+    const s = await navigator.mediaDevices.getDisplayMedia(opts);
+    pararPrevia();
+    mostrarPrevia(s);
+  } catch (err) {
+    if (err.name !== 'NotAllowedError') setMsg(err.message, 'error');
+  }
+}
+
+async function verCamera() {
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({
+      video: cfg.cameraId ? { deviceId: { exact: cfg.cameraId } } : true,
+      audio: false,
+    });
+    cfg.cameraId = s.getVideoTracks()[0]?.getSettings().deviceId ?? cfg.cameraId;
+    pararPrevia();
+    mostrarPrevia(s);
+  } catch (err) {
+    setMsg(err.name === 'NotAllowedError' ? 'Acesso negado. Libere a permissão.' : err.message, 'error');
+  }
+}
+
+$('btn-choose').addEventListener('click', () => {
+  if (cfg.fonte === 'camera') verCamera();
+  else verTela();
+});
+
+// ── Transmit ──
+$('btn-start').addEventListener('click', async () => {
+  if (broadcaster) return;
+  $('btn-start').disabled = true;
+
+  const isCamera = cfg.fonte === 'camera';
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const wsUrl = `${proto}://${location.host}/ws?room=${encodeURIComponent(roomId)}&user=${encodeURIComponent(username)}&fonte=${isCamera ? 'camera' : 'tela'}`;
+
+  broadcaster = createBroadcaster({
+    wsUrl, bitrate: cfg.bitrate, fps: cfg.fps,
+    audio: isCamera ? false : cfg.audio,
+    fonte: isCamera ? 'camera' : 'tela',
+    streamPronto: previa,
+    deviceId: isCamera ? cfg.cameraId : null,
+    onStatus: s => {
+      currentRes = `${s.width}×${s.height}`;
+      $('s-res').textContent = currentRes;
+      setMsg(`${s.codec} · ${currentRes} · captura ${s.direct ? 'direta' : 'via vídeo'}`, 'ok');
+    },
+    onStats: s => {
+      $('s-viewers').textContent = s.viewers;
+      $('s-fps').textContent = s.fps;
+      $('s-bitrate').textContent = s.mbps.toFixed(1);
+      $('s-elapsed').textContent = `${String(Math.floor(s.seconds / 60)).padStart(2, '0')}:${String(s.seconds % 60).padStart(2, '0')}`;
+    },
+    onAviso: msg => setMsg(msg, 'warn'),
+    onEnd: reason => {
+      broadcaster = null;
+      stopThumbs();
+      goSetup();
+      setMsg(reason);
+      setPageStatus('Pronto', 'ready');
+      releaseWakeLock();
+    },
+  });
+
+  previa = null;
+
+  try {
+    const stream = await broadcaster.start();
+    $('preview-video').srcObject = stream;
+    $('preview-video').play().catch(() => {});
+    $('preview-video').hidden = false;
+    $('preview-placeholder').hidden = true;
+    goLive();
+    startThumbs();
+    acquireWakeLock();
+    setPageStatus((isCamera ? 'Câmera' : 'Tela') + ' no ar', 'live');
+  } catch (err) {
+    broadcaster = null;
+    $('btn-start').disabled = false;
+    setMsg(err.name === 'NotAllowedError'
+      ? (isCamera ? 'Acesso à câmera negado.' : 'Seleção cancelada.')
+      : err.message, 'error');
+  }
+});
+
+$('btn-stop').addEventListener('click', () => {
+  broadcaster?.stop(cfg.fonte === 'camera' ? 'Câmera desligada.' : 'Transmissão encerrada.');
+});
+
+$('btn-switch').addEventListener('click', async () => {
+  if (!broadcaster) return;
+  try {
+    const fresh = await broadcaster.changeScreen();
+    $('preview-video').srcObject = fresh;
+    $('preview-video').play().catch(() => {});
+  } catch (err) {
+    if (err.name !== 'NotAllowedError') setMsg(err.message, 'error');
+  }
+});
+
+$('btn-audio-sep').addEventListener('click', async () => {
+  if (!broadcaster) return;
+  try {
+    await broadcaster.trocarSom();
+    setMsg('Som ligado da fonte escolhida.', 'ok');
+    $('btn-audio-sep').textContent = 'Trocar a fonte do som';
+  } catch (err) {
+    if (err.name !== 'NotAllowedError') setMsg(err.message, 'error');
+  }
+});
+
+function goLive() {
+  $('setup-actions').style.display = 'none';
+  $('live-actions').style.display = 'flex';
+  $('live-badge').style.display = 'block';
+  $('stats-bar').classList.add('visible');
+  const isScreen = cfg.fonte !== 'camera';
+  $('btn-switch').style.display = isScreen ? 'flex' : 'none';
+  $('btn-audio-sep').classList.toggle('visible', isScreen && cfg.audio);
+}
+
+function goSetup() {
+  $('setup-actions').style.display = 'flex';
+  $('live-actions').style.display = 'none';
+  $('live-badge').style.display = 'none';
+  $('stats-bar').classList.remove('visible');
+  $('btn-audio-sep').classList.remove('visible');
+  $('btn-start').disabled = false;
+  pararPrevia();
+}
+
+// ── Thumbnails ──
+function startThumbs() {
+  thumbCanvas = thumbCanvas || document.createElement('canvas');
+  const ctx = thumbCanvas.getContext('2d', { willReadFrequently: false });
+  thumbTimer = setInterval(() => {
+    const v = $('preview-video');
+    if (!broadcaster || !v.videoWidth) return;
+    const tw = 320, th = Math.max(2, Math.round(tw * (v.videoHeight / v.videoWidth)));
+    thumbCanvas.width = tw; thumbCanvas.height = th;
+    ctx.drawImage(v, 0, 0, tw, th);
+    thumbCanvas.toBlob(blob => {
+      if (blob && broadcaster) blob.arrayBuffer().then(ab => broadcaster?.sendThumbnail(new Uint8Array(ab)));
+    }, 'image/jpeg', 0.5);
+  }, 1000);
+}
+function stopThumbs() { clearInterval(thumbTimer); thumbTimer = null; }
+
+// ── Wake Lock ──
+async function acquireWakeLock() { try { wakeLock = await navigator.wakeLock?.request('screen'); } catch {} }
+function releaseWakeLock() { wakeLock?.release().catch(() => {}); wakeLock = null; }
+document.addEventListener('visibilitychange', () => { if (!document.hidden && broadcaster && !wakeLock) acquireWakeLock(); });
+
+// ── Beforeunload ──
+window.addEventListener('beforeunload', e => { if (broadcaster) { e.preventDefault(); e.returnValue = ''; } });
+window.addEventListener('pagehide', () => { broadcaster?.stop(); });
+</script>
+</body>
+</html>

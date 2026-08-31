@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+*.log
+service.log
+*.pem
+*.key
+*.cert
+*.zip
+*.tar.gz
+*.rar
